@@ -24,10 +24,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see GNU official website.
 """
 
-from ..obj.information   import Informations
-from ..obj.master_parser import Master
-from ..obj.wapiti        import Wapiti
-from ..obj.logger        import log
+from .obj.information   import Informations
+from .obj.master_parser import Master
+from .obj.wapiti        import Wapiti
+from .obj.logger        import log
 
 from .pretreatment.segmentation import segmentation
 from .pretreatment.enrich       import enrich
@@ -46,7 +46,7 @@ class Tagger(object):
         self.masterfile = masterfile
         self.pipeline  = self.MASTER.pipeline
         self.options   = self.MASTER.options
-		
+
         self.ienc = self.options.ienc
         self.oenc = self.options.oenc
 
@@ -157,14 +157,14 @@ class Tagger(object):
         
         current_input.seek(0)
 
-		# Saving output
-		output_string = []
-		if directory:
+        # Saving output
+        output_string = []
+        if directory:
             with open(join(dirname(directory), "".join(filename)), 'wb') as f:
-				for line in current_input:
-				    eline = line.encode(self.oenc)
-					f.write(eline)
-					output_string.append(eline)
+                for line in current_input:
+                    eline = line.encode(self.oenc)
+                    f.write(eline)
+                    output_string.append(eline)
         current_input.close()
         return "".join(eline)
 
