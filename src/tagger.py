@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 #-*- coding: utf-8 -*-
 
 """
@@ -24,112 +24,170 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see GNU official website.
 """
 
-from obj.master_parser import Master
-from obj.wapiti        import Wapiti
-from obj.logger        import log
+from ..obj.information   import Informations
+from ..obj.master_parser import Master
+from ..obj.wapiti        import Wapiti
+from ..obj.logger        import log
 
-from src.pretreatment.segmentation import segmentation
-from src.pretreatment.enrich       import enrich
+from .pretreatment.segmentation import segmentation
+from .pretreatment.enrich       import enrich
 
-from src.posttreatment.clean_info   import clean_info
-from src.posttreatment.textualise   import textualise
+from .posttreatment.clean_info   import clean_info
+from .posttreatment.textualise   import textualise
 
-import os.path
+import os.path, tempfile, io
 join     = os.path.join
 basename = os.path.basename
 dirname  = os.path.dirname
 
-def tagger(masterfile, current_input, directory="."):
-    MASTER    = Master(masterfile)
-    pipeline  = MASTER.pipeline
-    options   = MASTER.options
-    
-    file_history   = []  # the files generated so far in the pipeline
-    current_output = u"" # the current output in the pipeline
-    
-    nth  = 1
-    ienc = options.ienc
-    oenc = options.oenc
-    
-    if pipeline[0].identifier == u"segmentation":
-        current_output = join(directory, basename(current_input) + ".segmentation")
-        
-        segmentation(current_input, current_output, verbose=options.verbose)
-        
-        current_input  = current_output
-        nth           += 1
-        pipeline       = pipeline[1:]
-        
-        if options.verbose:
-            log('\n')
-    
-    for process in pipeline:
-        # segmentation may only be first. If we are in this loop, a segmentation
-        # cannot occur as it was handled before.
-        if process.identifier == u"segmentation":
-            raise RuntimeError(u"Segmentation can only be performed first. Asked as process number %d" %nth)
-            
-        elif process.identifier == u"clean_info":
-            current_output = join(directory, basename(current_input) + ".clean")
-            clean_info(current_input, current_output, process.args["to-keep"], ienc=ienc, oenc=oenc, verbose=options.verbose)
-            
-        elif process.identifier == u"enrich":
-            information    = join(dirname(masterfile), process.args["config"])
-            current_output = join(directory, basename(current_input) + "." + basename(information[:-4]))
-            
-            enrich(current_input, information, current_output, ienc=ienc, oenc=oenc, verbose=options.verbose)
-            
-        elif process.identifier == u"label":
-            model          = join(dirname(masterfile), process.args["model"])
-            current_output = join(directory, basename(current_input) + "." + basename(model))
-            
-            Wapiti.label(current_input, model, output=current_output)
-            
-        elif process.identifier == u"textualise":
-            poscol         = int(process.args["pos"]) if "pos" in process.args else 0
-            chunkcol       = int(process.args["chunk"]) if "chunk" in process.args else 0
-            current_output = join(directory, basename(current_input) + ".textualise")
-            
-            textualise(current_input, current_output, pos_column=poscol, chunk_column=chunkcol, ienc=oenc, oenc=oenc, verbose=options.verbose)
-            
-        else:
-            raise RuntimeError(u'Unknown process "%s"' %process.identifier)
-        
-        if options.verbose:
-            log("\n")
-        
-        if nth > 1:      file_history.append(current_input)
-        if ienc != oenc: ienc = oenc
-        current_input  = current_output
-        current_output = None
-        
-        nth += 1
-    
-    if options.clean:
-        if options.verbose:
-            log("Cleaning files...")
-        for filename in file_history:
-            os.remove(filename)
-        if options.verbose:
-            log(" Done.\n")
+class Tagger(object):
+    def __init__(self, masterfile, fast = False):
+        self.MASTER = Master(masterfile)
+        self.masterfile = masterfile
+        self.pipeline  = self.MASTER.pipeline
+        self.options   = self.MASTER.options
+		
+        self.ienc = self.options.ienc
+        self.oenc = self.options.oenc
 
+        self.fast = fast
+        if self.fast: 
+            self.info_files = {}
+            self.wapiti_models = {}
+
+    def tag_file(self, input, directory=None):
+        with open(input, 'rb') as f:
+            return self.tag(masterfile, f.read(), directory + basename(input))
+
+    def tag(self, input, directory=None):
+        
+        file_history   = []  # the files generated so far in the pipeline
+        current_output = None # the current output in the pipeline
+        current_input = io.StringIO(input.decode(self.ienc))
+        
+        nth  = 1
+        
+        filename = [directory and basename(directory) or ""]
+        pipeline = self.pipeline.copy()
+
+    #    tmp = None
+    #    if not directory:
+    #        tmp = True
+    #        directory = tempfile.mkdtemp()
+    #        input_fd, current_input_file = tempfile.mkstemp(dir=directory)
+
+    #        with os.fdopen(input_fd, 'w') as f:
+    #            f.write(current_input)
+    #        current_input = current_input_file
+    #        file_history.append(current_input) # We will have to destroy this file
+
+        if pipeline[0].identifier == "segmentation":
+            filename.append(".segmentation")
+
+            current_output = segmentation(current_input, verbose=self.options.verbose)
+            
+            current_input  = current_output
+            nth           += 1
+            pipeline       = pipeline[1:]
+            
+            if self.options.verbose:
+                log('\n')
+        
+        for process in pipeline:
+            # segmentation may only be first. If we are in this loop, a segmentation
+            # cannot occur as it was handled before.
+            
+            if process.identifier == "segmentation":
+                raise RuntimeError("Segmentation can only be performed first. Asked as process number %d" %nth)
+                
+            elif process.identifier == "clean_info":
+                filename.append('.clean')
+                current_output = clean_info(current_input, process.args["to-keep"], verbose=self.options.verbose)
+                
+            elif process.identifier == "enrich":
+                information    = join(dirname(self.masterfile), process.args["config"])
+                filename.extend((".", basename(information[:-4])))
+                
+                info_file = None
+                if self.fast:
+                    info_file = self.info_files.get(information)
+                if not info_file:
+                    info_file = Informations(information)
+                current_output = enrich(current_input, info_file, verbose=self.options.verbose)
+                
+                if self.fast:
+                    self.info_files[information] = info_file
+                else:
+                    del info_file
+
+            elif process.identifier == "label":
+                model = join(dirname(self.masterfile), process.args["model"])
+                filename.extend((".",  basename(model)))
+
+                wapiti_model = None
+                if self.fast:
+                    wapiti_model = self.wapiti_models.get(model)
+                if not wapiti_model:
+                    wapiti_model = Wapiti(model)
+                current_output = io.StringIO(wapiti_model.label(current_input))
+                
+                if self.fast:
+                    self.wapiti_models[model] = wapiti_model
+                else:
+                    del wapiti_model
+                
+            elif process.identifier == "textualise":
+                poscol         = int(process.args["pos"]) if "pos" in process.args else 0
+                chunkcol       = int(process.args["chunk"]) if "chunk" in process.args else 0
+                filename.append('.textualise')
+                
+                current_output = textualise(current_input, pos_column=poscol, chunk_column=chunkcol, verbose=self.options.verbose)
+                
+            else:
+                raise RuntimeError('Unknown process "%s"' % process.identifier)
+            
+            if self.options.verbose:
+                log("\n")
+            
+            current_input.close()
+            current_input  = current_output
+            current_output = None
+            
+            nth += 1
+        
+        current_input.seek(0)
+
+		# Saving output
+		output_string = []
+		if directory:
+            with open(join(dirname(directory), "".join(filename)), 'wb') as f:
+				for line in current_input:
+				    eline = line.encode(self.oenc)
+					f.write(eline)
+					output_string.append(eline)
+        current_input.close()
+        return "".join(eline)
 
 if __name__ == '__main__':
     import argparse, sys
     parser = argparse.ArgumentParser(description="Performs various operations given in a master configuration file that defines a pipeline.")
     
     parser.add_argument("master",
-                        help="The master configuration file. Defines at least the pipeline and may provide some options.")
+                        help="The master configuration file. Defines at least the pipeline and may provide some self.options.")
     parser.add_argument("input_file",
                         help="The input file for the tagger.")
     parser.add_argument("-o", "--output-directory", dest="output_directory", default=".",
                         help="The output directory (default: '.')")
+    parser.add_argument("-f", "--fast", action='store_true',
+                        help="Cache the models (increase memory usage).")
     
     if not __package__:
         parser = parser.parse_args()
     else:
         parser = parser.parse_args(sys.argv[2:])
     
-    tagger(parser.master, parser.input_file,
+    tagger = Tagger(parser.master, fast = parser.fast)
+
+    tagger.tag_file(parser.input_file,
            directory=parser.output_directory)
     sys.exit(0)

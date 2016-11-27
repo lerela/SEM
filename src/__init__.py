@@ -40,13 +40,13 @@ def val(string):
     elif string == "CHUNK":
         return CHUNK
     else:
-        raise ValueError(u"Invalid code : " + string)
+        raise ValueError("Invalid code : " + string)
 
 # code is a string containing the different codes representing the wanted
 # labellings. POS, CHUNK, POS+CHUNK are examples of such codes.
 def getcode(code):
     if code is None:
-        raise ValueError(u"No code given in parameter !")
+        raise ValueError("No code given in parameter !")
     else:
         codelist = list(set([s.upper() for s in code.split("+")]))
         code = sum([val(c) for c in codelist])

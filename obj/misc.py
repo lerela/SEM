@@ -28,7 +28,7 @@ def ranges_to_set(ranges, reference):
         if lo < 0: lo = length + lo
         if hi < 0: hi = length + hi
         
-        for i in xrange(lo, hi+1): result.add(i)
+        for i in range(lo, hi+1): result.add(i)
     
     if 0 not in result: result.add(0)
     

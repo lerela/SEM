@@ -1,18 +1,23 @@
 from obj.tree        import Tree, BooleanNode, ListNode, TokenNode, MultiWordNode
 from obj.information import Informations
-from obj.corpus      import ICorpus, OCorpus
+from obj.corpus      import InCorpus, OnCorpus
 from obj.logger      import log
 
-def enrich(infile, infofile, outfile,
-           ienc="UTF-8", oenc="UTF-8", verbose=False):
-    info    = Informations(infofile)
-    icorpus = ICorpus(infile, ienc)
-    ocorpus = OCorpus(outfile, oenc)
+def enrich(incorpus, info, outcorpus=None, verbose=False):
     
+    if not outcorpus:
+        outcorpus = OnCorpus()
+
     if verbose:
         log('Enriching file "%s"...\n' %infile)
 
-    l   = mkentry(icorpus, info.bentries() + info.aentries())
+    infile.seek(0)
+
+    if isinstance(info, str):
+        log('loading %s' %info)
+        info = Informations(info)
+
+    l   = mkentry(incorpus, info.bentries() + info.aentries())
     fmt = "\t".join(["%(" + entry + ")s" for entry in info.bentries()])
 
     if verbose:
@@ -42,9 +47,11 @@ def enrich(infile, infofile, outfile,
     if verbose:
         log("Outputting...")
     for sent in l:
-        ocorpus.putformat(sent, fmt)
+        outcorpus.putformat(sent, fmt)
     if verbose:
         log(" Done.\n")
+
+    return outcorpus
 
 def add(corpus, trait):
     def to_pseudo_boolean_if_possible(string):
@@ -54,7 +61,7 @@ def add(corpus, trait):
     name = trait.get_name()
     for sent in corpus:
         token = []
-        for i in xrange(len(sent)):
+        for i in range(len(sent)):
             enriched = dict(sent[i])
             enriched[name] = to_pseudo_boolean_if_possible(trait.eval(sent, i))
             token.append(enriched)
@@ -71,14 +78,14 @@ def addSequence(corpus, trait):
     
     name     = trait.get_name()
     resource = trait.root.value
-    NUL      = u""
+    NUL      = ""
     
     if not resource:
         for sent in corpus:
             l = []
             for token in sent:
                 y = dict(token)
-                y[name] = u'O'
+                y[name] = 'O'
                 l.append(y)
             yield l
     
@@ -95,7 +102,7 @@ def addSequence(corpus, trait):
             cont = True
             while cont and (cur < length):
                 if (NUL not in tmp):
-                    ckey = sent[cur][u"word"]
+                    ckey = sent[cur]["word"]
                     
                     if (ckey in tmp):
                         tmp = tmp[ckey]
@@ -106,20 +113,20 @@ def addSequence(corpus, trait):
                     cont = False
             
             if NUL in tmp:
-                l[fst][name] = u'B'
-                for i in xrange(fst+1, cur):
-                    l[i][name] = u'I'
+                l[fst][name] = 'B'
+                for i in range(fst+1, cur):
+                    l[i][name] = 'I'
                 fst = cur
             else:
-                l[fst][name] = u'O'
+                l[fst][name] = 'O'
                 fst += 1
                 cur = fst
             tmp = resource
 
             criterion = fst >= length - 1
 
-        if not name in l[-1].keys():
-            l[-1][name] = u'O'
+        if not name in list(l[-1].keys()):
+            l[-1][name] = 'O'
         yield l
 
 def mkentry(it, cols):
@@ -131,8 +138,6 @@ def mkentry(it, cols):
                 l2[c] = v
             lines.append(l2)
         yield lines
-    
-
 
 
 if __name__ == "__main__":
@@ -158,6 +163,11 @@ if __name__ == "__main__":
     arguments = (sys.argv[2:] if __package__ else sys.argv)
     parser    = parser.parse_args(arguments)
     
-    enrich(parser.infile, parser.infofile, parser.outfile,
-           ienc=parser.ienc or parser.enc, oenc=parser.oenc or parser.enc, verbose=parser.verbose)
+    with open(parser.infile, 'rb') as infile, open(parser.outfile, 'wb') as outfile:
+        incorpus = InCorpus(infile, ienc=parser.ienc or parser.enc)
+        outcorpus = OnCorpus(outfile, oenc=parser.oenc or parser.enc)
+
+        enrich(incorpus, parser.infofile, outcorpus,
+           verbose=parser.verbose)
+
     sys.exit(0)

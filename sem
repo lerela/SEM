@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 #-------------------------------------------------------------------------------
@@ -29,18 +29,19 @@ from obj.setup import get_modules
 
 if __name__ == "__main__":
     import sys, runpy, os.path
-    
+
     ids, pathes = get_modules("src")
     name        = os.path.basename(sys.argv[0])
     operation   = sys.argv[1]
+    
     
     if operation in ids:
         n = ids.index(operation)
         runpy.run_module(pathes[n], run_name="__main__", alter_sys=True)
     elif operation in ["-h", "--help"]:
-        print "Usage: " + name + " <module> [module arguments]\n"
-        print "Module list:"
+        print("Usage: " + name + " <module> [module arguments]\n")
+        print("Module list:")
         for i in ids:
-            print "\t"+i
+            print("\t"+i)
     else:
-        print "Module not found: " + operation
+        print("Module not found: " + operation)

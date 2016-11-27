@@ -1,17 +1,19 @@
-import codecs
+import io
 
-class ICorpus(object):
+class InCorpus(object):
 
-    def __init__(self, filename, encoding="UTF-8"):
-        self.filename = filename
-        self.encoding = encoding
-        self._size    = None
+    def __init__(self, fd, ienc=None):
+        self._fd = fd
+        self._size = None
+        self.ienc = ienc
 
     def __iter__(self):
         skipping = True
         entry = []
-        for line in codecs.open(self.filename, "rU", self.encoding):
+        for line in self._fd:
             line = line.strip()
+            if self.ienc:
+                line = line.decode(self.ienc)
             if not line:
                 if entry:
                     yield tuple(entry)
@@ -28,39 +30,56 @@ class ICorpus(object):
             n = 0
             for x in self:
                 n += 1
+            self._fd.seek(0)
         return n
 
-class OCorpus(object):
+class OnCorpus(object):
 
-    def __init__(self, filename, encoding="UTF-8"):
-        self._fd = codecs.open(filename, "w", encoding)
+    def __init__(self, fd=None, oenc=None):
+        if fd is None:
+            self._fd = io.StringIO()
+        else:
+            self._fd = fd
         self.bof = True
+        self.oenc = oenc
 
     def close(self):
         self._fd.close()
         self._fd = None
 
+    def write(self, s):
+        if self.oenc:
+            self._fd.write(s.encode(self.oenc))
+        else:
+            self._fd.write(s)
+
     def put(self, entry):
         if self.bof:
             self.bof = False
         else:
-            self._fd.write(u"\n")
+            self.write("\n")
         for line in entry:
-            self._fd.write(line)
-            self._fd.write(u"\n")
+            self.write(line)
+            self.write("\n")
 
     def put_concise(self, entry):
         if self.bof:
             self.bof = False
         else:
-            self._fd.write(u"\n")
-        self._fd.write(u"\n".join(entry))
+            self.write("\n")
+        self.write("\n".join(entry))
 
     def putformat(self, entry, format):
         if self.bof:
             self.bof = False
         else:
-            self._fd.write(u"\n")
+            self.write("\n")
         for line in entry:
-            self._fd.write(format %line)
-            self._fd.write(u"\n")
+            print((format, line))
+            self.write(format % line)
+            self.write("\n")
+    
+    @property
+    def file(self):
+        self._fd.seek(0)
+        return self._fd

@@ -37,14 +37,14 @@
 
 import os, os.path, sys, string, time
 
-from obj.corpus import ICorpus, OCorpus
-from obj.logger import log
+from sem.obj.corpus import InCorpus, OnCorpus
+from sem.obj.logger import log
 
-B = u"B"
-I = u"I"
-O = u"O0"
+B = "B"
+I = "I"
+O = "O0"
 
-def textualise(inputfile, outputfile,
+def textualise(inputfile,
                pos_column=0, chunk_column=0,
                ienc="utf-8", oenc="utf-8", verbose=False):
     
@@ -53,8 +53,8 @@ def textualise(inputfile, outputfile,
     if verbose:
         log('Textualising "%s"...' %inputfile)
     
-    incorpus = ICorpus(inputfile)
-    outcorpus = OCorpus(outputfile)
+    incorpus = InCorpus(inputfile)
+    outcorpus = OnCorpus()
     
     if pos_column != 0 and chunk_column != 0:   # doing both POS and CHUNKING
         textualise_posandchunk(incorpus, outcorpus, pos_column, chunk_column)
@@ -67,14 +67,15 @@ def textualise(inputfile, outputfile,
     
     if verbose:
         log(' Done.\n')
+    return outcorpus.file
 
 def textualise_pos(incorpus, outc, poscol):
     for paragraph in incorpus:
-        outc.put_concise( [u" ".join( [u"/".join( [line.split()[0]] + [line.split()[poscol]] ) for line in paragraph] )])
+        outc.put_concise( [" ".join( ["/".join( [line.split()[0]] + [line.split()[poscol]] ) for line in paragraph] )])
 
 def textualise_chunk(incorpus, outc, chunkcol):
-    chkid = u""
-    result = u""
+    chkid = ""
+    result = ""
     tokens = []
     for paragraph in incorpus:
         chkid = getchunkid(paragraph[0].split()[chunkcol])
@@ -84,19 +85,19 @@ def textualise_chunk(incorpus, outc, chunkcol):
             if (getchunkid(chunk) == chkid) or (getchunkid(chunk) == I and chkid in [B,I]):
                 tokens.append(informations[0])
             else:
-                result += (u"" if result == u"" else u" ") + to_string(tokens, chkid)
+                result += ("" if result == "" else " ") + to_string(tokens, chkid)
                 del tokens[:]
                 tokens.append(informations[0])
                 chkid = getchunkid(chunk)
         if line == paragraph[-1]:
-            result += u" " + to_string(tokens, chkid)
+            result += " " + to_string(tokens, chkid)
             del tokens[:]
         outc.put([result])
-        result = u""
+        result = ""
 
 def textualise_posandchunk(incorpus, outc, poscol, chunkcol):
-    chkid   = u""
-    result  = u""
+    chkid   = ""
+    result  = ""
     tokens  = []
     POS_seq = []
     for paragraph in incorpus:
@@ -109,42 +110,42 @@ def textualise_posandchunk(incorpus, outc, poscol, chunkcol):
                 tokens.append(informations[0])
                 POS_seq.append(pos)
             else:
-                result += (u"" if result == u"" else u" ") + to_string_POS(tokens, POS_seq, chkid)
+                result += ("" if result == "" else " ") + to_string_POS(tokens, POS_seq, chkid)
                 del tokens[:]
                 del POS_seq[:]
                 tokens.append(informations[0])
                 POS_seq.append(pos)
                 chkid = getchunkid(chunk)
         if line == paragraph[-1]:
-            result += u" " + to_string_POS(tokens, POS_seq, chkid)
+            result += " " + to_string_POS(tokens, POS_seq, chkid)
             del tokens[:]
             del POS_seq[:]
         outc.put([result])
-        result = u""
+        result = ""
 
 def getchunkid(chunk):
-    return (chunk[2:] if (chunk[0:2]==(u'B-') or chunk[0:2]==(u'I-')) else chunk) # trimming "B-" or "I-" if necessary
+    return (chunk[2:] if (chunk[0:2]==('B-') or chunk[0:2]==('I-')) else chunk) # trimming "B-" or "I-" if necessary
 
 def to_string(tokens, chkid):
-    res = u" ".join(tokens)
+    res = " ".join(tokens)
     if chkid in O:
         return res
     else:
-        pref = u"("
+        pref = "("
         if chkid not in [B,I]:
             pref += chkid + " "
-        res = pref + res + u")"
+        res = pref + res + ")"
         return res
 
 def to_string_POS(tokens, POS, chkid):
-    res = u" ".join([token + u"/" + tag for token,tag in zip(tokens,POS)])
+    res = " ".join([token + "/" + tag for token,tag in zip(tokens,POS)])
     if chkid in O:
         return res
     else:
-        pref = u"("
+        pref = "("
         if chkid not in [B,I]:
             pref += chkid + " "
-        res = pref + res + u")"
+        res = pref + res + ")"
         return res
 
 if __name__ == '__main__':

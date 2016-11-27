@@ -1,5 +1,5 @@
 from xml.etree.ElementTree import ElementTree
-from tree import Tree, EndogeneNodeFromName, ExogeneNodeFromName
+from .tree import Tree, EndogeneNodeFromName, ExogeneNodeFromName
 
 class Informations(object):
     def __init__(self, path=None):
@@ -52,7 +52,7 @@ class Informations(object):
         self._endogenes = children[1].getchildren()
         self._exogenes  = (children[2].getchildren() if len(children)>2 else [])
         
-        for i in xrange(len(self._endogenes)):
+        for i in range(len(self._endogenes)):
             name = self._endogenes[i].attrib["name"]
             safe_add(found, name)
             
@@ -61,7 +61,7 @@ class Informations(object):
             self._endogenes[i] = tmp
         
         if self._exogenes:
-            for i in xrange(len(self._exogenes)):
+            for i in range(len(self._exogenes)):
                 tmp = Tree(ExogeneNodeFromName(self._exogenes[i].tag, filename))
                 tmp.parse(self._exogenes[i])
                 self._exogenes[i] = tmp

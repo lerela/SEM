@@ -7,7 +7,7 @@ join = os.path.join
 
 def get_modules(path):
     def to_module_name(name):
-        return re.sub(r"[\\/]", ".", re.sub(r"^[./\\]+", "", elt[:-3], re.MULTILINE))
+        return re.sub(r"[\\/]", ".", re.sub(r"^[./\\]+", "", name[:-3], re.MULTILINE))
     
     def get(path):
         ids    = os.listdir(path)
@@ -22,7 +22,7 @@ def get_modules(path):
             
             for i in dirs:
                 L, R = get(i)
-                for i in xrange(len(L)):
+                for i in range(len(L)):
                     m = L[i]
                     if m not in ids:
                         ids.append(m)
@@ -36,6 +36,6 @@ def get_modules(path):
         
         return [ids, pathes]
     ids, pathes = get(path)
-    pathes      = [to_module_name(elt) for elt in pathes]
+    pathes = [to_module_name(elt) for elt in pathes]
     
     return [ids,pathes]

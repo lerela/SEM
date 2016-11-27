@@ -1,25 +1,31 @@
-from obj.misc   import ranges_to_set
-from obj.logger import log
+from sem.obj.misc   import ranges_to_set
+from sem.obj.logger import log
+from sem.obj.corpus import InCorpus
 
-import codecs
+import io
 
-def clean_info(infile, outfile, ranges,
+def clean_info(input, ranges,
                ienc="utf-8", oenc="utf-8", verbose=False):
-    allowed = ranges_to_set(ranges, codecs.open(infile, "rU", ienc).readline().strip().split())
-    
+    input.seek(0)
+    allowed = ranges_to_set(ranges, input.readline().strip().split())
+    input.seek(0)
+
     if verbose:
-        log('Cleaning "%s"...' %infile)
-        
-    with codecs.open(outfile, "w", oenc) as O:
-        for line in codecs.open(infile, "rU", ienc):
-            line = line.strip().split()
-            if line != []:
-                tokens = [line[i] for i in xrange(len(line)) if i in allowed]
-                O.write(u"\t".join(tokens))
-            O.write(u"\n")
+        log('Cleaning input file...')
+
+    O = io.StringIO()
+
+    for line in input:
+        line = line.strip().split()
+        if line != []:
+            tokens = [line[i] for i in range(len(line)) if i in allowed]
+
+            O.write("\t".join(tokens))
+        O.write("\n")
     
     if verbose:
         log(' Done.\n')
+    return O
 
 if __name__ == "__main__":
     import argparse, sys

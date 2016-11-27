@@ -12,8 +12,8 @@ class Master(object):
     Global options will affect every runned script.
     """
     
-    _allowed_pipes   = set([u"segmentation", u"enrich", u"label", u"clean_info", u"textualise"])
-    _allowed_options = set([u"encoding", u"verbose", u"clean"])
+    _allowed_pipes   = set(["segmentation", "enrich", "label", "clean_info", "textualise"])
+    _allowed_options = set(["encoding", "verbose", "clean"])
     
     class Process(object):
         """
@@ -97,6 +97,7 @@ class Master(object):
             assert (child.tag in Master._allowed_pipes)
             attrib = child.attrib
             self.pipeline.append(Master.Process(child.tag, attrib))
+            child.clear()
         
         if len(children) > 1:
             for child in children[1].getchildren():
@@ -110,3 +111,5 @@ class Master(object):
                     self.options.set_verbose(True)
                 elif option == "clean":
                     self.options.set_clean(True)
+                child.clear()
+        

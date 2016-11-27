@@ -1,4 +1,4 @@
-import re, cPickle, os.path
+import re, pickle, os.path
 
 join    = os.path.join
 abspath = os.path.abspath
@@ -138,7 +138,7 @@ class BooleanNode(Node):
                     return self.nullary(sentdict, index)
                 if arity == "unary":
                     return self.unary(sentdict, index)
-        return unicode(evaluate(self))
+        return str(evaluate(self))
     
     def nullary(self, sentdict, position):
         action = self.value.attrib["action"].lower()
@@ -249,7 +249,7 @@ class ListNode(Node):
                 if not evaluate(e):
                     result = False
                     break
-        return unicode(result)
+        return str(result)
 
 
 class RegexpNode(Node):
@@ -307,7 +307,7 @@ class RegexpNode(Node):
                 else:
                     return "_no-match_"
         
-        return unicode(evaluate())
+        return str(evaluate())
     
     
 class ConditionalNode(Node):
@@ -367,8 +367,8 @@ class TokenNode(Node):
     def parse(self, elt, parent):
         self.parent = None
         self.path   = join(dirname(abspath(self.path)), elt.attrib["path"]) # path of the file relatively to the directory containing the configuration file
-        
-        self.value = cPickle.load(open(self.path))
+
+        self.value = pickle.load(open(self.path, 'rb'))
         self.shift = Node.get_shift(elt)
         
     
@@ -382,7 +382,7 @@ class TokenNode(Node):
             
             return word in self.value
         
-        return unicode(evaluate())
+        return str(evaluate())
 
 
 class MultiWordNode(Node):
@@ -397,8 +397,8 @@ class MultiWordNode(Node):
     def parse(self, elt, parent):
         self.parent = None
         self.path   = join(dirname(abspath(self.path)), elt.attrib["path"]) # path of the file relatively to the directory containing the configuration file
-        
-        self.value = cPickle.load(open(self.path))
+
+        self.value = pickle.load(open(self.path, 'rb'))
         
     def eval(self, sentdict, position):
         raise RuntimeError("eval undefined for type MultiWordNode.")
